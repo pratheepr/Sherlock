@@ -53,6 +53,8 @@ def main():
 
     df_trans_purchase = df_transactions.loc[df_transactions['annotation_value'] == 'Purchase']
 
+    purchase_avg_price = ( df_trans_purchase.price * df_trans_purchase.no_of_items ).sum() / df_trans_purchase.no_of_items.sum()
+
     df_capital_gains_losses = df_init.createDF(postgre_conn, "select * from public.stg_capt_gains_losses where 0=1")
 
     row_cap_gain_loss = df_init.createDF(postgre_conn, "select * from public.stg_capt_gains_losses where 0=1")
@@ -83,12 +85,17 @@ def main():
                 row_cap_gain_loss.at[0, 'exchange_rate'] = 1
                 row_cap_gain_loss.at[0, 'pieces'] = purchase_row['no_of_items']
                 row_cap_gain_loss.at[0, 'sell_price'] = sell_row['price']
-                row_cap_gain_loss.at[0, 'purchase_price'] = purchase_row['price']
+
+                if creds.CALC_METHOD == 'AVG':
+                    row_cap_gain_loss.at[0, 'purchase_price'] = purchase_avg_price
+                else:
+                    row_cap_gain_loss.at[0, 'purchase_price'] = purchase_row['price']
+
                 row_cap_gain_loss.at[0, 'proceeds_in_euro'] = purchase_row['no_of_items'] * sell_row['price']
                 row_cap_gain_loss.at[0, 'fees_charges_in_euro'] = purchase_row['no_of_items'] * sell_row[
                     'fees_per_item']
                 row_cap_gain_loss.at[0, 'acquisition_costs_in_euro'] = purchase_row['no_of_items'] * (
-                            purchase_row['price'] + purchase_row['fees_per_item'])
+                        row_cap_gain_loss.at[0, 'purchase_price'] + purchase_row['fees_per_item'])
                 row_cap_gain_loss.at[0, 'capital_gain_loss_in_euro'] = (row_cap_gain_loss.loc[0, 'proceeds_in_euro']) - (row_cap_gain_loss.loc[0, 'acquisition_costs_in_euro'] + row_cap_gain_loss.loc[0, 'fees_charges_in_euro'])
                 row_cap_gain_loss.at[0, 'fx_component_in_gain_loss_euro'] = 0
                 row_cap_gain_loss.at[0, 'total_gain_loss_eurp'] = row_cap_gain_loss.loc[0, 'capital_gain_loss_in_euro']
@@ -107,7 +114,6 @@ def main():
 
                 df_capital_gains_losses = df_capital_gains_losses.append(row_cap_gain_loss, ignore_index= True)
 
-
                 continue
 
             if ((sell_count - purchase_row['no_of_items']) < 0)  and (purchase_row['no_of_items'] > 0):
@@ -121,16 +127,20 @@ def main():
                 row_cap_gain_loss.at[0, 'exchange_rate'] = 1
                 row_cap_gain_loss.at[0, 'pieces'] = sell_count
                 row_cap_gain_loss.at[0, 'sell_price'] = sell_row['price']
-                row_cap_gain_loss.at[0, 'purchase_price'] = purchase_row['price']
+
+                if creds.CALC_METHOD == 'AVG':
+                    row_cap_gain_loss.at[0, 'purchase_price'] = purchase_avg_price
+                else:
+                    row_cap_gain_loss.at[0, 'purchase_price'] = purchase_row['price']
+
                 row_cap_gain_loss.at[0, 'proceeds_in_euro'] = sell_count * sell_row['price']
                 row_cap_gain_loss.at[0, 'fees_charges_in_euro'] = sell_count * sell_row['fees_per_item']
                 row_cap_gain_loss.at[0, 'acquisition_costs_in_euro'] = sell_count * (
-                            purchase_row['price'] + purchase_row['fees_per_item'])
+                        row_cap_gain_loss.at[0, 'purchase_price'] + purchase_row['fees_per_item'])
                 row_cap_gain_loss.at[0, 'capital_gain_loss_in_euro'] = row_cap_gain_loss.loc[0, 'proceeds_in_euro'] - \
                                                                        row_cap_gain_loss.loc[0, 'acquisition_costs_in_euro']
                 row_cap_gain_loss.at[0, 'fx_component_in_gain_loss_euro'] = 0
                 row_cap_gain_loss.at[0, 'total_gain_loss_eurp'] = row_cap_gain_loss.loc[0, 'capital_gain_loss_in_euro']
-
 
                 df_trans_purchase.at[purch_index, 'no_of_items'] = purchase_row['no_of_items'] - sell_count
 
