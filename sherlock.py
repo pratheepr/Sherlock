@@ -40,27 +40,31 @@ def Write_DF_to_DB(postgre_def, df_capital_gains_losses):
 def main():
     pds.set_option('display.expand_frame_repr', False)
 
+# Postgre connection definitions
     postgre_def = create_dbConnection(creds.PGUSER, creds.PGPASSWORD, creds.PGHOST, creds.PGDATABASE)
     postgre_conn = postgre_def.connect_to_db()
 
+
+# Initialize all required dataframes from postrge tables
     df_init = create_DF()
 
     df_transactions = df_init.createDF(postgre_conn, "select * from public.inp_transaction")
-
     print(df_transactions)
 
     df_trans_sell = df_transactions.loc[df_transactions['annotation_value'] == 'Sell']
 
     df_trans_purchase = df_transactions.loc[df_transactions['annotation_value'] == 'Purchase']
 
-    purchase_avg_price = ( df_trans_purchase.price * df_trans_purchase.no_of_items ).sum() / df_trans_purchase.no_of_items.sum()
-
     df_capital_gains_losses = df_init.createDF(postgre_conn, "select * from public.stg_capt_gains_losses where 0=1")
 
     row_cap_gain_loss = df_init.createDF(postgre_conn, "select * from public.stg_capt_gains_losses where 0=1")
 
+    # Average purchase price calculation  ( avg is multiply price with no_of_items and divide by no. of items )
+    purchase_avg_price = (df_trans_purchase.price * df_trans_purchase.no_of_items).sum() / df_trans_purchase.no_of_items.sum()
+
     sell_count = 0
     purchase_count = 0
+
 
     for sell_index, sell_row in df_trans_sell.iterrows():
 
@@ -118,7 +122,7 @@ def main():
 
             if ((sell_count - purchase_row['no_of_items']) < 0)  and (purchase_row['no_of_items'] > 0):
 
-                purchase_count =  sell_count # purchase_count +
+                purchase_count =  sell_count
                 row_cap_gain_loss.at[0, 'transaction'] = 'Sell'
                 row_cap_gain_loss.at[0, 'charge_type'] = 'Taxable'
                 row_cap_gain_loss.at[0, 'date_trade'] = sell_row['date_trade']
